@@ -17,3 +17,5 @@ The code itself is under the Apache 2.0 license, the training data used for the 
 >   * [Elsevier](http://dx.doi.org/10.1016/j.dss.2009.05.016)
 >   * [Pre-press (pdf)](http://www3.dsi.uminho.pt/pcortez/winequality09.pdf)
 >   * [bib](http://www3.dsi.uminho.pt/pcortez/dss09.bib)
+
+The trained data and the test set are added to the repo, you can override them from the command line (see `RunRegression.java`).
