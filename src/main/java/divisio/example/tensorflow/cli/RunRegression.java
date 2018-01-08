@@ -1,4 +1,4 @@
-package io.divis.tensorflow.example;
+package divisio.example.tensorflow.cli;
 
 import java.io.BufferedReader;
 import java.io.File;
