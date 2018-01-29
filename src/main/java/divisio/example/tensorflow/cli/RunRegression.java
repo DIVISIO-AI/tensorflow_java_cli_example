@@ -4,6 +4,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.TreeMap;
 
 import org.tensorflow.SavedModelBundle;
@@ -54,6 +57,28 @@ public class RunRegression {
 		return Tensor.create(new long[] {1}, 
 				FloatBuffer.wrap(new float[] {f}));
 	}
+	
+	/**
+	 * Helper function to add to a collection within a fluent interface
+	 * @param t any T
+	 * @param ts collection to add t to
+	 * @return the given t
+	 */
+	private static <T> T add(final T t, final Collection<T> ts) {
+		ts.add(t);
+		return t;
+	} 
+	
+	private static void closeTensors(final Collection<Tensor<?>> ts) {
+		for (final Tensor<?> t : ts) {
+			try {
+				t.close();
+			} catch (final Exception e) {
+				System.err.println("Error closing Tensor.");
+				e.printStackTrace();
+			}
+		}
+	}
 		
 	public static void main(final String[] argv) throws Exception {	
 		//parse command line parameters
@@ -97,29 +122,30 @@ public class RunRegression {
 					System.err.println("Invalid number of columns (" + tokens.length + ") in line " + 
 							lineCounter + ", skipping line.");
 					continue;
-				}				
+				}		
+				final List<Tensor<?>> tensorsToClose = new ArrayList<Tensor<?>>(20); 
 				try {
 					//parse the CSV line values
 					final float[] values = parseFloats(tokens, lineCounter);
 					//run a session just like in python
-					final Tensor<?> result = bundle.session().runner()
-							.feed("wine_type"           , toTensor(values[1]))
-							.feed("fixed_acidity"       , toTensor(values[2]))
-							.feed("volatile_acidity"    , toTensor(values[3]))
-							.feed("citric_acid"         , toTensor(values[4]))
-							.feed("residual_sugar"      , toTensor(values[5]))
-							.feed("chlorides"           , toTensor(values[6]))
-							.feed("free_sulfur_dioxide" , toTensor(values[7]))
-							.feed("total_sulfur_dioxide", toTensor(values[8]))
-							.feed("density"             , toTensor(values[9]))
-							.feed("ph"                  , toTensor(values[10]))
-							.feed("sulphates"           , toTensor(values[11]))
-							.feed("alcohol"             , toTensor(values[12]))
+					final Tensor<?> result = add(bundle.session().runner()
+							.feed("wine_type"           , add(toTensor(values[1]), tensorsToClose))
+							.feed("fixed_acidity"       , add(toTensor(values[2]), tensorsToClose))
+							.feed("volatile_acidity"    , add(toTensor(values[3]), tensorsToClose))
+							.feed("citric_acid"         , add(toTensor(values[4]), tensorsToClose))
+							.feed("residual_sugar"      , add(toTensor(values[5]), tensorsToClose))
+							.feed("chlorides"           , add(toTensor(values[6]), tensorsToClose))
+							.feed("free_sulfur_dioxide" , add(toTensor(values[7]), tensorsToClose))
+							.feed("total_sulfur_dioxide", add(toTensor(values[8]), tensorsToClose))
+							.feed("density"             , add(toTensor(values[9]), tensorsToClose))
+							.feed("ph"                  , add(toTensor(values[10]), tensorsToClose))
+							.feed("sulphates"           , add(toTensor(values[11]), tensorsToClose))
+							.feed("alcohol"             , add(toTensor(values[12]), tensorsToClose))
 							//use the saved model CLI shipping with tensorflow to determine the name
 							//of the result node
 							.fetch("dnn/head/logits:0")
 							.run()
-							.get(0);
+							.get(0), tensorsToClose);
 					//it can be a bit tricky to unpack the result, the following debug statement gives
 					// a quick look into the tensor shape & type
 					//System.out.println("Got tensor " + result + ", dtype = " + result.dataType() + 
@@ -146,7 +172,13 @@ public class RunRegression {
 					final int diff = Math.abs(predictedLabel - actualLabel);
 					final int count = errorCount.containsKey(diff) ? errorCount.get(diff) : 0;
 					errorCount.put(diff, count + 1);
-				} catch (final NumberFormatException nfe) {}	//just skip unparsable lines				
+				} catch (final NumberFormatException nfe) {
+					//just skip unparsable lines
+				} finally {
+					closeTensors(tensorsToClose);
+					tensorsToClose.clear();
+				}
+				
 			}
 			//print final statistics on how well we predicted the test set
 			for (int key : errorCount.keySet()) {
